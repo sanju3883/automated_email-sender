@@ -1,0 +1,29 @@
+const { google } = require('googleapis');
+const OAuth2 = google.auth.OAuth2;
+
+const oAuth2Client = new OAuth2(
+  process.env.clientId,
+  process.env.secret-key,
+  'http://localhost:3000/oauth2callback/gmail'
+);
+
+const getGmailAuthUrl = () => {
+  const authUrl = oAuth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send'],
+  });
+  console.log('authUrl',authUrl);
+  return authUrl;
+}
+
+const getGmailToken = async (code) => {
+  const { tokens } = await oAuth2Client.getToken(code);
+  oAuth2Client.setCredentials(tokens);
+  return tokens;
+}
+
+module.exports = {
+    getGmailToken,
+    getGmailAuthUrl
+}
+
