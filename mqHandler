@@ -1,0 +1,34 @@
+const { Queue, Worker, QueueEvents } = require('bullmq');
+const { fetchEmails } = require('./mailHandler');
+
+const IORedis = require('ioredis');
+
+const connection = new IORedis({
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+  });
+
+const emailQueue = new Queue('emailQueue', {
+  connection,
+  defaultJobOptions: {
+  removeOnComplete: true,
+  removeOnFail: false,
+  lockDuration: 300000, // Lock duration in milliseconds (e.g., 5 minutes)
+}});
+const queueEvents = new QueueEvents('emailQueue');
+
+const worker = new Worker('emailQueue', async (job) => {
+     console.log('process job with id : ', job.id);
+    console.log('job data', job.data);
+    return fetchEmails(job.data.imap);
+}, { connection });
+
+function scheduleEmailFetch(imap) {
+    console.log('imap',imap);
+  const response = emailQueue.add('fetchEmails', { imap }, { repeat: { cron: '*/5 * * * *' } }); // Fetch emails every 5 minutes
+    console.log('response',response);
+}
+
+module.exports = {
+    scheduleEmailFetch
+}

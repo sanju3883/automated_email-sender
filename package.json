@@ -1,0 +1,24 @@
+{
+  "name": "automated-email-sender",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "bullmq": "^5.8.2",
+    "express": "^4.19.2",
+    "googleapis": "^140.0.1",
+    "imap": "^0.8.19",
+    "ioredis": "^5.4.1",
+    "mailparser": "^3.7.1",
+    "nodemailer": "^6.9.14",
+    "nodemon": "^3.1.4",
+    "openai": "^4.52.1"
+  }
+}

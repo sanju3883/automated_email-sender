@@ -1,0 +1,34 @@
+const { Client } = require('@microsoft/microsoft-graph-client');
+const { ConfidentialClientApplication } = require('@azure/msal-node');
+
+const msalConfig = {
+  auth: {
+    clientId: process.env.clientId,
+    authority: process.env.authority,
+    clientSecret: process.env.secret,
+  },
+};
+
+const cca = new ConfidentialClientApplication(msalConfig);
+
+const getOutlookAuthUrl = () => {
+  const authUrl = cca.getAuthCodeUrl({
+    scopes: ['Mail.Read', 'Mail.Send'],
+    redirectUri: 'http://localhost:3000//oauth2callback/outlook',
+  });
+  return authUrl;
+}
+
+const getOutlookToken = async(code) => {
+  const response = await cca.acquireTokenByCode({
+    code: code,
+    scopes: ['Mail.Read', 'Mail.Send'],
+    redirectUri: 'http://localhost:3000//oauth2callback/outlook',
+  });
+  return response.accessToken;
+}
+
+module.exports = {
+  getOutlookAuthUrl,
+  getOutlookToken
+}

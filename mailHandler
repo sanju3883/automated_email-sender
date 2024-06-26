@@ -1,0 +1,149 @@
+const nodemailer = require('nodemailer');
+const OpenAI = require('openai');
+
+const openai = new OpenAI({
+    apiKey: process.env.openAPI-key, // This is the default and can be omitted
+  });
+
+const Imap = require('imap');
+const simpleParser = require('mailparser');
+
+function setupImapConnectionForGmail(user, tokens) {
+  return new Imap({
+    user: user,
+    xoauth2: tokens.access_token,
+    host: 'imap.gmail.com',
+    port: 993,
+    tls: {
+      rejectUnauthorized: false 
+    },
+    refreshToken: tokens.refreshToken,
+    connTimeout: 10000, 
+   authTimeout: 5000,  
+   keepalive: true
+  });
+}
+
+function setupImapConnectionForOutlook(user, tokens) {
+    return new Imap({
+      user: user,
+      xoauth2: tokens.access_token,
+      host: 'imap-mail.outlook.com',
+      port: 993,
+      tls: {
+        rejectUnauthorized: false 
+      },
+      refreshToken: tokens.refreshToken
+    });
+  }
+
+function openInbox(imap, cb) {
+  imap.openBox('INBOX', true, cb);
+}
+
+const fetchEmails =  async(imap) => {
+  imap.once('ready', () => {
+    console.log('ready to open');
+    openInbox(imap, (err, box) => {
+      if (err) throw err;
+      const fetch = imap.seq.fetch('1:*', {
+        bodies: '',
+        markSeen: true,
+      });
+
+      fetch.on('message', (msg) => {
+        console.log('message', mes);
+        msg.on('body', (stream) => {
+            simpleParser(stream, (err, mail) => {
+            if (err) throw err;
+            processEmail(mail,imap.xoauth2, imap.refreshToken);
+          });
+        });
+      });
+
+      fetch.once('end', () => {
+        console.log('Done fetching all messages!');
+        imap.end();
+      });
+    });
+  });
+
+  imap.once('error', (err) => {
+    console.error('IMAP Error:', err);
+  });
+
+  imap.once('end', () => {
+    console.log('Connection ended');
+  });
+
+  imap.connect();
+}
+
+
+const processEmail = async(emailContent, accessToken, refreshToken) => {
+  console.log('emailContent', emailContent);
+  const response = await openai.createCompletion({
+    model: 'text-davinci-003',
+    prompt: `Analyze the following email and provide a label (Interested, Not Interested, More information):\n\n${emailContent}\n\nLabel:`,
+    max_tokens: 10,
+  });
+
+  const label = response.data.choices[0].text.trim();
+  console.log(`Label for email: ${label}`);
+
+  await sendAutomatedReply(emailContent, label, accessToken, refreshToken);
+}
+
+
+const sendAutomatedReply = async(emailContent, label, accessToken, refreshToken) => {
+  let replyText;
+  console.log('emailContent', emailContent);
+  console.log('label', label);
+  switch (label) {
+    case 'Interested':
+      replyText = 'Thank you for your interest! Would you like to schedule a demo call? Please let us know your availability.';
+      break;
+    case 'Not Interested':
+      replyText = 'Thank you for your response. If you have any questions in the future, feel free to reach out.';
+      break;
+    case 'More information':
+      replyText = 'Could you please provide more details on what you need? We are happy to help.';
+      break;
+    default:
+      replyText = 'Thank you for reaching out.';
+  }
+
+  const mailOptions = {
+    from: '925sanjeev@gmail.com', // for outlook use outlook emailId
+    to: emailContent.from.value[0].address,
+    subject: `Re: ${emailContent.subject}`,
+    text: replyText,
+  };
+
+  
+  const transporter = nodemailer.createTransport({
+    service: 'gmail', // use hotmail for outlook
+    auth: {
+      type: 'OAuth2',
+      user: '925sanjeev@gmail.com', //outlook email
+      // all tokens and secrets will be replaced for outlook
+      clientId: process.env.clientId,
+      clientSecret: process.env.secret,
+      refreshToken: refreshToken,
+      accessToken: accessToken,
+    },
+  });
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      return console.error('Error sending email:', error);
+    }
+    console.log('Email sent:', info.response);
+  });
+}
+
+module.exports = {
+    setupImapConnectionForGmail,
+    fetchEmails,
+    setupImapConnectionForOutlook
+}
